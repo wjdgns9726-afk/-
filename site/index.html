@@ -42,7 +42,7 @@
     background:var(--bg);
     color:var(--ink);
     font-family:'IBM Plex Sans KR','IBM Plex Sans',-apple-system,sans-serif;
-    font-size:17px;
+    font-size:20px;
     padding-inline:20px;
   }
   h1,h2,.display{
@@ -66,21 +66,21 @@
   }
   .eyebrow{
     font-family:'IBM Plex Mono',monospace;
-    font-size:14px;
+    font-size:15px;
     letter-spacing:.12em;
     text-transform:uppercase;
     color:var(--accent);
     margin:0 0 8px;
   }
   h1{
-    font-size:clamp(28px,6.5vw,40px);
+    font-size:clamp(32px,8vw,46px);
     font-weight:600;
-    margin:0 0 10px;
+    margin:0 0 12px;
     text-wrap:balance;
   }
   .instructions{
     color:var(--ink-soft);
-    font-size:17px;
+    font-size:19px;
     line-height:1.6;
     max-width:60ch;
     margin:0;
@@ -177,17 +177,17 @@
     border-top:1px solid var(--line);
   }
   .card-body .order{
-    font-size:14px;
+    font-size:15px;
     color:var(--accent);
     letter-spacing:.08em;
   }
   .card-body .title{
     font-weight:600;
-    font-size:20px;
+    font-size:23px;
     line-height:1.35;
   }
   .card-body .speaker{
-    font-size:16px;
+    font-size:18px;
     color:var(--ink-soft);
   }
 
@@ -211,7 +211,7 @@
   }
   .overlay-top .order{
     font-family:'IBM Plex Mono',monospace;
-    font-size:15px;
+    font-size:16px;
     letter-spacing:.1em;
     color:#C9CDD4;
   }
@@ -219,10 +219,10 @@
     background:rgba(255,255,255,.08);
     border:1px solid rgba(255,255,255,.18);
     color:#EDEAE3;
-    width:46px;
-    height:46px;
-    border-radius:12px;
-    font-size:20px;
+    width:64px;
+    height:64px;
+    border-radius:14px;
+    font-size:30px;
     line-height:1;
     cursor:pointer;
   }
@@ -253,12 +253,9 @@
     position:relative;
   }
   .poster-frame.is-video{
-    /* matches the recorded clips' 412:720 portrait aspect, so the video
-       fills the frame edge-to-edge instead of pillarboxing inside a 3:4 box */
-    aspect-ratio:103/180;
-    width:auto;
-    height:min(100%, 92vh);
-    max-width:min(520px,92vw);
+    /* width/height are set in JS from the clips' real 412:720 aspect so the
+       video fills the largest box that fits on screen, in every browser */
+    max-width:none;
     padding:0;
   }
   .poster-frame img{
@@ -312,13 +309,13 @@
   }
   .overlay-caption .title{
     font-family:'Fraunces',serif;
-    font-size:26px;
+    font-size:29px;
     font-weight:600;
     margin:0 0 6px;
     text-wrap:balance;
   }
   .overlay-caption .speaker{
-    font-size:17px;
+    font-size:19px;
     color:#B7BCC4;
   }
 
@@ -458,7 +455,32 @@
     ovSpeaker.textContent = talk.speaker;
     prevBtn.disabled = i === 0;
     nextBtn.disabled = i === TALKS.length - 1;
+    sizeVideoFrame();
   }
+
+  // Sizes the frame in JS (rather than relying on CSS aspect-ratio auto-resolution,
+  // which some mobile browsers mishandle when combined with max-width clamping) so the
+  // video always fills the largest box its real 412:720 aspect allows on screen.
+  const overlayBody = document.querySelector('.overlay-body');
+  const VIDEO_RATIO = 412 / 720;
+  function sizeVideoFrame(){
+    if (!posterFrame.classList.contains('is-video')) {
+      posterFrame.style.width = '';
+      posterFrame.style.height = '';
+      return;
+    }
+    const availW = overlayBody.clientWidth - 16;
+    const availH = overlayBody.clientHeight - 8;
+    let w, h;
+    if (availW / VIDEO_RATIO <= availH) {
+      w = availW; h = w / VIDEO_RATIO;
+    } else {
+      h = availH; w = h * VIDEO_RATIO;
+    }
+    posterFrame.style.width = Math.floor(w) + 'px';
+    posterFrame.style.height = Math.floor(h) + 'px';
+  }
+  window.addEventListener('resize', () => { if (!overlay.hidden) sizeVideoFrame(); });
 
   function stopMedia(){
     const video = posterFrame.querySelector('video');
@@ -467,8 +489,8 @@
 
   function openPoster(i){
     current = i;
-    renderPoster(current);
     overlay.hidden = false;
+    renderPoster(current);
   }
   function closePoster(){ stopMedia(); overlay.hidden = true; }
   function step(delta){
