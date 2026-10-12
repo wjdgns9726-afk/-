@@ -24,6 +24,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Make child-like character voices
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install -q edge-tts==7.2.8
+          node hello-game/tools/dump-lines.js > /tmp/lines.json
+          python hello-game/tools/make_voices.py /tmp/lines.json hello-game/voices
+          du -sh hello-game/voices
       - uses: actions/upload-pages-artifact@v3
         with:
           path: "hello-game"
