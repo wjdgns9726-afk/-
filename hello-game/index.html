@@ -62,7 +62,6 @@ button:focus-visible{outline:4px solid var(--accent);outline-offset:3px}
 .bubble:empty{display:none}
 #charWrap{position:relative;width:min(70vw,44vh,360px);margin-bottom:8px}
 #charWrap.enter{animation:walkIn 1.4s ease-out both}
-#charWrap.happy{animation:jump .55s ease-in-out 3}
 @keyframes walkIn{0%{transform:translateX(70vw) rotate(4deg)}20%{transform:translateX(52vw) rotate(-4deg) translateY(-10px)}40%{transform:translateX(34vw) rotate(4deg)}60%{transform:translateX(18vw) rotate(-4deg) translateY(-10px)}80%{transform:translateX(6vw) rotate(2deg)}100%{transform:none}}
 @keyframes jump{50%{transform:translateY(-16%) scale(1.03)}}
 .photo-friend{position:relative;display:flex;flex-direction:column;align-items:center}
@@ -86,6 +85,25 @@ button:focus-visible{outline:4px solid var(--accent);outline-offset:3px}
 @keyframes fall{to{transform:translateY(110vh) rotate(540deg)}}
 .sticker-pop{position:fixed;left:50%;top:40%;font-size:140px;transform:translate(-50%,-50%) scale(0);animation:pop 1.6s ease-out forwards;z-index:21;pointer-events:none}
 @keyframes pop{30%{transform:translate(-50%,-50%) scale(1.2)}45%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{transform:translate(-50%,-160%) scale(.5);opacity:0}}
+.burst{position:fixed;left:50%;bottom:30%;width:200vmax;height:200vmax;margin:0 0 -100vmax -100vmax;border-radius:50%;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle,#fffbe0 0%,#fff3a0cc 10%,#fff0 40%),repeating-conic-gradient(from 0deg,#ffd75acc 0deg 9deg,#ffd75a00 9deg 18deg);
+  opacity:0;transform:scale(.2);animation:burstIn .6s ease-out forwards,burstSpin 8s linear infinite}
+.burst.out{transform:scale(1);animation:burstOut .8s ease-in forwards}
+@keyframes burstIn{to{opacity:1;transform:scale(1)}}
+@keyframes burstSpin{from{rotate:0deg}to{rotate:360deg}}
+@keyframes burstOut{from{opacity:1}to{opacity:0}}
+.flash{position:fixed;inset:0;background:#fff;z-index:22;pointer-events:none;animation:flash .5s ease-out forwards}
+@keyframes flash{from{opacity:.85}to{opacity:0}}
+#fx{position:fixed;inset:0;width:100%;height:100%;z-index:19;pointer-events:none}
+.banner{position:fixed;left:50%;top:32%;z-index:23;pointer-events:none;white-space:nowrap;
+  font-size:clamp(40px,12vw,84px);color:#fff;letter-spacing:1px;
+  text-shadow:0 4px 0 var(--accent),0 8px 0 #c9502f,0 12px 18px #0004;
+  transform:translate(-50%,-50%) scale(0) rotate(-12deg);animation:bannerIn 3.2s cubic-bezier(.2,1.6,.4,1) forwards}
+.banner span{display:inline-block;animation:letter .6s ease-in-out infinite alternate}
+@keyframes bannerIn{0%{transform:translate(-50%,-50%) scale(0) rotate(-12deg)}18%{transform:translate(-50%,-50%) scale(1.15) rotate(4deg)}28%,85%{transform:translate(-50%,-50%) scale(1) rotate(-2deg);opacity:1}100%{transform:translate(-50%,-90%) scale(.8);opacity:0}}
+@keyframes letter{to{transform:translateY(-10px)}}
+#charWrap.happy{animation:happyDance 1.8s ease-in-out}
+@keyframes happyDance{0%{transform:none}15%{transform:translateY(-22%) scale(1.05)}30%{transform:none}45%{transform:translateY(-18%) rotate(360deg)}60%{transform:rotate(360deg)}75%{transform:translateY(-12%) rotate(360deg)}100%{transform:rotate(360deg)}}
 .after{display:flex;gap:16px;justify-content:center}
 .after .big-btn{font-size:clamp(20px,6vw,28px);padding:14px 22px;white-space:nowrap}
 .after .big-btn.alt{background:var(--mint);box-shadow:0 8px 0 #3a9a7f}
@@ -169,8 +187,8 @@ button:focus-visible{outline:4px solid var(--accent);outline-offset:3px}
   <div class="panel">
     <h3>부모님 설정</h3>
     <label>아이 이름
-      <input type="text" id="kidName" placeholder="예: 하준" maxlength="10">
-      <small>캐릭터가 "하준아 안녕~" 하고 이름을 불러줘요.</small>
+      <input type="text" id="kidName" placeholder="예: 도빈" maxlength="10">
+      <small>캐릭터가 "도빈아 안녕~" 하고 이름을 불러줘요.</small>
     </label>
     <div>
       <div style="font-weight:600;margin-bottom:6px">인사 인식 방법</div>
@@ -215,15 +233,17 @@ const store = {
   get(k, d){ try{ const v = localStorage.getItem("hello-game:"+k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem("hello-game:"+k, JSON.stringify(v)); return true; }catch(e){ return false; } }
 };
-const settings = Object.assign({ kid:"", mode:"sound", tts:true }, store.get("settings", {}));
+const settings = Object.assign({ kid:"도빈", mode:"sound", tts:true }, store.get("settings", {}));
+if(!settings.kid) settings.kid = "도빈";
 let stars = store.get("stars", {});
 let photos = store.get("photos", []);
 
 /* ---------- 한국어 조사 ---------- */
 const hasFinal = s => { const c = s.charCodeAt(s.length-1); return c>=0xAC00 && c<=0xD7A3 && (c-0xAC00)%28 !== 0; };
-const voc = n => n ? n + (hasFinal(n) ? "아" : "야") : "";          // 하준아 / 서아야
+const voc = n => n ? n + (hasFinal(n) ? "아" : "야") : "";          // 도빈아 / 서아야
 const iya = n => n + (hasFinal(n) ? "이야" : "야");                    // 펭귄이야 / 토끼야
 const kidCall = () => settings.kid ? voc(settings.kid) + " " : "";
+const kidSubj = () => settings.kid ? settings.kid + (hasFinal(settings.kid) ? "이" : "") : "우리 친구"; // 도빈이
 
 /* ---------- 캐릭터 SVG ---------- */
 // 공통 얼굴 부품. 눈은 깜빡이고, 기쁘면 ^^ 눈, 말하면 입이 열림.
@@ -352,7 +372,7 @@ function lines(c){
       ask:   `${who}한테 "안녕하세요~" 해볼까?`,
       retry: `괜찮아~ 작은 목소리도 좋아. "안녕하세요~"`,
       wave:  `손 흔들어 줬구나! 고마워~ 이번엔 "안녕하세요~" 말해볼까?`,
-      good:  pick([`와~ 인사 정말 잘하네! ${who} 너무 기뻐!`, `우와~ 씩씩하게 인사했네! 최고야!`, `반가워~ 오늘도 재밌게 놀자!`]),
+      good:  pick([`와~ ${k}인사 정말 잘하네! ${who} 너무 기뻐!`, `우와~ ${kidSubj()} 씩씩하게 인사했네! 최고야!`, `반가워 ${k.trim()}~ 오늘도 재밌게 놀자!`]),
       later: `괜찮아~ 다음에 또 인사하자. 손 흔들어줘서 고마워!`
     };
   }
@@ -362,7 +382,7 @@ function lines(c){
     ask:   `나한테도 "안녕~" 해줄래?`,
     retry: `괜찮아~ 작게 해도 돼. 같이 해보자, "안녕~"`,
     wave:  `손 흔들어 줬구나! 고마워~ 이번엔 "안녕~" 말해볼까?`,
-    good:  pick([`와~ 인사 정말 잘한다! 나도 반가워!`, `우와~ 목소리 멋지다! 우리 친구하자!`, `안녕 안녕~ 너랑 인사해서 너무 좋아!`, `최고야! 인사해줘서 고마워~`]),
+    good:  pick([`와~ ${k}인사 정말 잘한다! 나도 반가워!`, `우와~ ${kidSubj()} 목소리 멋지다! 우리 친구하자!`, `안녕 안녕~ ${k}너랑 인사해서 너무 좋아!`, `${kidSubj()} 최고야! 인사해줘서 고마워~`]),
     later: `괜찮아~ 다음에 또 인사하자. 안녕~!`
   };
 }
@@ -403,6 +423,29 @@ function setBubble(t){ document.getElementById("bubble").textContent = t; }
 /* ---------- 효과음 ---------- */
 let actx = null;
 function audioCtx(){ try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==="suspended") actx.resume(); }catch(e){} return actx; }
+function fanfare(){
+  const ctx = audioCtx(); if(!ctx) return;
+  const t0 = ctx.currentTime;
+  // 솔-솔-솔-도~ 미-도~ 팡파레
+  [[392,0,.12],[392,.14,.12],[392,.28,.12],[523.25,.42,.35],[659.25,.8,.18],[523.25,1.0,.18],[783.99,1.2,.6]].forEach(([f,d,len])=>{
+    for(const [type,vol,mul] of [["square",0.07,1],["triangle",0.18,2]]){
+      const o = ctx.createOscillator(), g = ctx.createGain(), t = t0+d;
+      o.type = type; o.frequency.value = f*mul/ (type==="triangle"?2:1);
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+len+0.15);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+len+0.2);
+    }
+  });
+  // 짝짝짝 박수
+  for(let i=0;i<10;i++) noiseHit(t0 + 1.9 + i*0.16 + Math.random()*0.03, 0.35, 1800, 0.06);
+}
+function noiseHit(t, vol, freq, len){
+  const ctx = audioCtx(); if(!ctx) return;
+  const n = Math.floor(ctx.sampleRate*len), buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+  for(let i=0;i<n;i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/n, 3);
+  const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = buf; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 0.8; g.gain.value = vol;
+  src.connect(f).connect(g).connect(ctx.destination); src.start(t);
+}
 function chime(){
   const ctx = audioCtx(); if(!ctx) return;
   [523.25,659.25,783.99,1046.5].forEach((f,i)=>{
@@ -543,7 +586,7 @@ let current = null, round = 0, busy = false, done = false;
 
 async function startPlay(c){
   stopListening();
-  current = c; round = 0; done = false;
+  current = c; round = 0; done = false; fxRun++; endCelebrate();
   show("play");
   $("after").hidden = true; $("controls").hidden = false; $("parentOk").hidden = false;
   setBubble(""); showHint("");
@@ -601,13 +644,15 @@ async function success(){
   showHint("");
   $("controls").hidden = true; $("parentOk").hidden = true;
   wrap.classList.remove("waving"); wrap.classList.add("is-happy","happy","waving");
-  chime(); confetti(); stickerPop();
+  chime(); fanfare(); confetti(); stickerPop(); celebrate();
   if(navigator.vibrate) try{ navigator.vibrate([60,40,60]); }catch(e){}
   busy = true;
-  await say(lines(c).good, c);
+  // 칭찬 말이 짧게 끝나도 이펙트는 충분히 보여주기
+  await Promise.all([say(lines(c).good, c), wait(3400)]);
   busy = false;
   if(current!==c) return;
   wrap.classList.remove("happy");
+  endCelebrate();
   $("after").hidden = false;
 }
 
@@ -623,6 +668,60 @@ function confetti(){
     document.body.appendChild(s);
     setTimeout(() => s.remove(), 4200);
   }
+}
+/* 성공 이펙트: 화면 번쩍 + 회전하는 햇살 + 불꽃놀이 + "도빈이 최고!" */
+let fxRun = 0;
+function celebrate(){
+  const flash = document.createElement("div"); flash.className = "flash";
+  document.body.appendChild(flash); setTimeout(() => flash.remove(), 600);
+
+  document.querySelectorAll(".burst").forEach(b => b.remove());
+  const burst = document.createElement("div"); burst.className = "burst";
+  document.body.insertBefore(burst, document.querySelector(".sun"));
+
+  const banner = document.createElement("div"); banner.className = "banner";
+  [...`${kidSubj()} 최고!`].forEach((ch,i) => { const sp = document.createElement("span"); sp.textContent = ch===" " ? "\u00a0" : ch; sp.style.animationDelay = (i*0.08)+"s"; banner.appendChild(sp); });
+  const clap = document.createElement("span"); clap.textContent = " 👏"; banner.appendChild(clap);
+  document.body.appendChild(banner); setTimeout(() => banner.remove(), 3300);
+
+  fireworks();
+}
+function endCelebrate(){
+  document.querySelectorAll(".burst").forEach(b => { b.classList.add("out"); setTimeout(() => b.remove(), 800); });
+}
+function fireworks(){
+  const run = ++fxRun;
+  let cv = $("fx");
+  if(!cv){ cv = document.createElement("canvas"); cv.id = "fx"; document.body.appendChild(cv); }
+  const dpr = Math.min(2, window.devicePixelRatio||1), W = innerWidth, H = innerHeight;
+  cv.width = W*dpr; cv.height = H*dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+  const colors = ["#ff5d8f","#ffd34d","#5cc8a8","#7aa7ff","#ff7a59","#c48bff","#ffffff"];
+  const parts = [];
+  const boom = () => {
+    const x = W*(0.15+Math.random()*0.7), y = H*(0.15+Math.random()*0.35), col = pick(colors), col2 = pick(colors);
+    for(let i=0;i<46;i++){
+      const a = i/46*Math.PI*2, sp = 2.5 + Math.random()*3.5;
+      parts.push({x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:1, c: i%3 ? col : col2, r: 2.5+Math.random()*2.5});
+    }
+    noiseHit(audioCtx() ? actx.currentTime : 0, 0.25, 500, 0.25);
+  };
+  const plan = [0, 350, 700, 1100, 1500, 1900, 2300];
+  plan.forEach(ms => setTimeout(() => { if(run===fxRun) boom(); }, ms));
+  const end = performance.now() + 4200;
+  const frame = now => {
+    if(run!==fxRun) return;
+    g.clearRect(0,0,W,H);
+    for(const p of parts){
+      if(p.life<=0) continue;
+      p.vy += 0.06; p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx; p.y += p.vy; p.life -= 0.012;
+      g.globalAlpha = Math.max(0,p.life); g.fillStyle = p.c;
+      g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI*2); g.fill();
+    }
+    g.globalAlpha = 1;
+    if(now < end) requestAnimationFrame(frame); else g.clearRect(0,0,W,H);
+  };
+  requestAnimationFrame(frame);
 }
 function stickerPop(){
   const s = document.createElement("div"); s.className = "sticker-pop"; s.textContent = "⭐";
