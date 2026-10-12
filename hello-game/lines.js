@@ -15,6 +15,14 @@ const CHARS = [
   {id:"teacher",name:"선생님", kind:"kid", style:"teacher", hair:"#5a3a2a", shirt:"#9ec5ff", pants:"#5b4a8a", group:"teacher", pitch:1.15, teacher:true},
 ];
 
+// 사진 친구는 이름이 제각각이라 대사에 이름을 넣지 않고, 고른 목소리로 미리 만들어 둔 파일을 씁니다.
+// (사진 선생님은 "teacher" 목소리를 같이 씁니다.)
+const PHOTO_VOICES = [
+  {id:"photo-girl", label:"여자아이"},
+  {id:"photo-boy",  label:"남자아이"},
+];
+const voiceIdFor = c => !c.photo ? c.id : c.teacher ? "teacher" : (c.voice === "boy" ? "photo-boy" : "photo-girl");
+
 // 미리 녹음된 목소리 파일은 이 이름 기준으로 만들어집니다.
 const DEFAULT_KID = "도빈";
 
@@ -28,7 +36,7 @@ const subj = n => n ? n + (hasFinal(n) ? "이" : "") : "우리 친구";     // �
 function linesFor(c, kid){
   const k = kid ? voc(kid) + " " : "";
   if(c.teacher){
-    const who = c.photo ? c.name : "선생님";
+    const who = "선생님";
     return {
       intro: `${k}안녕~! ${who}이야. 반가워!`,
       ask:   `${who}한테 "안녕하세요~" 해볼까?`,
@@ -39,7 +47,7 @@ function linesFor(c, kid){
     };
   }
   return {
-    intro: `${k}안녕~! 나는 ${iya(c.name)}.`,
+    intro: c.photo ? `${k}안녕~! 만나서 반가워!` : `${k}안녕~! 나는 ${iya(c.name)}.`,
     ask:   `나한테도 "안녕~" 해줄래?`,
     retry: `괜찮아~ 작게 해도 돼. 같이 해보자, "안녕~"`,
     wave:  `손 흔들어 줬구나! 고마워~ 이번엔 "안녕~" 말해볼까?`,
@@ -48,7 +56,7 @@ function linesFor(c, kid){
   };
 }
 
-const api = { CHARS, DEFAULT_KID, hasFinal, voc, iya, subj, linesFor };
+const api = { CHARS, PHOTO_VOICES, voiceIdFor, DEFAULT_KID, hasFinal, voc, iya, subj, linesFor };
 if(typeof module !== "undefined" && module.exports) module.exports = api;
 else root.HelloLines = api;
 })(this);

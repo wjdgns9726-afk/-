@@ -114,7 +114,7 @@ button:focus-visible{outline:4px solid var(--accent);outline-offset:3px}
 .panel h3{font-family:var(--display);font-size:26px;margin:0}
 .panel label{display:flex;flex-direction:column;gap:6px;font-weight:600}
 .panel input[type=text]{font-size:18px;padding:10px 12px;border-radius:12px;border:2px solid #e6d9c8;background:#fff}
-.panel .opt{display:flex;gap:10px;align-items:flex-start;font-weight:400}
+.panel .opt{display:flex;flex-direction:row;gap:10px;align-items:flex-start;font-weight:400}
 .panel .opt input{margin-top:4px;width:20px;height:20px}
 .panel small{color:#7a6a60;font-weight:400;line-height:1.45}
 .panel .row{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
@@ -215,6 +215,11 @@ button:focus-visible{outline:4px solid var(--accent);outline-offset:3px}
     <label>이름
       <input type="text" id="photoName" placeholder="예: 지우, 김선생님" maxlength="10">
     </label>
+    <div id="photoVoiceRow">
+      <div style="font-weight:600;margin-bottom:6px">목소리</div>
+      <label class="opt"><input type="radio" name="photoVoice" value="girl" id="photoVoiceGirl"> <span>여자아이</span></label>
+      <label class="opt"><input type="radio" name="photoVoice" value="boy" id="photoVoiceBoy"> <span>남자아이</span></label>
+    </div>
     <label class="opt"><input type="checkbox" id="photoTeacher"> <span>선생님이에요 <small>(아이에게 "안녕하세요~"를 알려줘요)</small></span></label>
     <div class="row">
       <button class="btn ghost" id="photoDelete" hidden>삭제</button>
@@ -240,7 +245,7 @@ let stars = store.get("stars", {});
 let photos = store.get("photos", []);
 
 /* ---------- 대사 (lines.js) ---------- */
-const { CHARS, voc, iya, subj, linesFor } = window.HelloLines;
+const { CHARS, voc, iya, subj, linesFor, voiceIdFor } = window.HelloLines;
 const kidSubj = () => subj(settings.kid);
 
 /* ---------- 캐릭터 SVG ---------- */
@@ -368,7 +373,7 @@ let voiceMap = {};
 const clipCache = new Map();
 let clipSource = null;
 fetch("voices/manifest.json").then(r => r.ok ? r.json() : {}).then(m => { voiceMap = m || {}; }).catch(() => {});
-function clipUrl(text, c){ const m = c && voiceMap[c.id]; return m && m[text] ? "voices/" + m[text] : null; }
+function clipUrl(text, c){ const m = c && voiceMap[voiceIdFor(c)]; return m && m[text] ? "voices/" + m[text] : null; }
 function loadClip(url){
   if(!clipCache.has(url)){
     const ctx = audioCtx();
@@ -380,7 +385,7 @@ function loadClip(url){
   return clipCache.get(url);
 }
 function preloadVoices(c){
-  const m = c && voiceMap[c.id]; if(!m || !settings.tts) return;
+  const m = c && voiceMap[voiceIdFor(c)]; if(!m || !settings.tts) return;
   const L = linesFor(c, settings.kid);
   for(const t of [L.intro, L.ask, L.retry, L.wave, L.later, ...L.good]) if(m[t]) loadClip("voices/" + m[t]);
 }
@@ -548,7 +553,7 @@ function show(id){ for(const s of ["home","pick","play"]) $(s).hidden = s!==id; 
 function showHint(t){ $("hint").textContent = t; }
 
 function allChars(){
-  return CHARS.concat(photos.map(p => ({id:p.id, name:p.name, photo:p.src, teacher:p.teacher, group:"photo", pitch:p.teacher?1.15:1.6})));
+  return CHARS.concat(photos.map(p => ({id:p.id, name:p.name, photo:p.src, teacher:p.teacher, voice:p.voice||"girl", group:"photo", pitch:p.teacher?1.15:1.6})));
 }
 function charArt(c){
   if(c.photo) return `<div class="photo-friend"><img src="${c.photo}" alt=""><div class="hand">👋</div></div>`;
@@ -799,13 +804,13 @@ $("photoInput").addEventListener("change", async e => {
   if(!f) return;
   const src = await shrink(f, 320);
   editing = { id:null, src };
-  $("photoPreview").src = src; $("photoName").value = ""; $("photoTeacher").checked = false;
+  $("photoPreview").src = src; $("photoName").value = ""; $("photoTeacher").checked = false; setPhotoVoice("girl");
   $("photoDelete").hidden = true; $("addSheet").hidden = false;
 });
 function openPhotoEditor(id){
   const p = photos.find(x => x.id===id); if(!p) return;
   editing = { id, src:p.src };
-  $("photoPreview").src = p.src; $("photoName").value = p.name; $("photoTeacher").checked = !!p.teacher;
+  $("photoPreview").src = p.src; $("photoName").value = p.name; $("photoTeacher").checked = !!p.teacher; setPhotoVoice(p.voice||"girl");
   $("photoDelete").hidden = false; $("addSheet").hidden = false;
 }
 $("photoCancel").addEventListener("click", () => { $("addSheet").hidden = true; editing = null; });
@@ -816,11 +821,18 @@ $("photoDelete").addEventListener("click", () => {
 $("photoSave").addEventListener("click", () => {
   const name = $("photoName").value.trim() || "친구";
   const teacher = $("photoTeacher").checked;
-  if(editing.id){ const p = photos.find(x => x.id===editing.id); Object.assign(p, {name, teacher}); }
-  else photos.push({ id:"p"+Date.now(), name, teacher, src:editing.src });
+  const voice = $("photoVoiceBoy").checked ? "boy" : "girl";
+  if(editing.id){ const p = photos.find(x => x.id===editing.id); Object.assign(p, {name, teacher, voice}); }
+  else photos.push({ id:"p"+Date.now(), name, teacher, voice, src:editing.src });
   if(!store.set("photos", photos)) showHint("사진이 너무 많아 저장하지 못했어요");
   $("addSheet").hidden = true; editing = null; renderGrid();
 });
+// 선생님이면 선생님 목소리를 쓰므로 아이 목소리 선택은 숨겨요.
+function setPhotoVoice(v){
+  $("photoVoiceBoy").checked = v==="boy"; $("photoVoiceGirl").checked = v!=="boy";
+  $("photoVoiceRow").hidden = $("photoTeacher").checked;
+}
+$("photoTeacher").addEventListener("change", () => { $("photoVoiceRow").hidden = $("photoTeacher").checked; });
 function shrink(file, size){
   return new Promise(res => {
     const img = new Image(), url = URL.createObjectURL(file);

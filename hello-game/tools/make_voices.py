@@ -22,6 +22,9 @@ VOICES = {
     "seoa":    dict(voice="F2", speed=1.0,  shift=1.26),
     "jiho":    dict(voice="F4", speed=1.0,  shift=1.17),
     "teacher": dict(voice="F1", speed=0.95, shift=1.0),
+    # 사진으로 추가한 친구 (부모님이 고른 목소리)
+    "photo-girl": dict(voice="F3", speed=1.0, shift=1.25),
+    "photo-boy":  dict(voice="F5", speed=1.0, shift=1.17),
 }
 
 
