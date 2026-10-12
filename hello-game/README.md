@@ -6,7 +6,7 @@
 ## 실행 방법
 마이크는 **https** 주소나 `localhost`에서만 동작합니다.
 
-- GitHub Pages: 저장소 Settings → Pages에서 이 브랜치를 켜고 `/hello-game/` 주소로 접속
+- 휴대폰: https://wjdgns9726-afk.github.io/-/ (이 브랜치에 push하면 자동 배포)
 - 컴퓨터에서: `cd hello-game && python3 -m http.server 8000` 후 `http://localhost:8000`
 
 추천 브라우저: 안드로이드 크롬·삼성인터넷, 아이폰 사파리 (음성 인식 지원)
