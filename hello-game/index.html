@@ -193,7 +193,7 @@ button:focus-visible{outline:4px solid var(--accent);outline-offset:3px}
     <div>
       <div style="font-weight:600;margin-bottom:6px">인사 인식 방법</div>
       <label class="opt"><input type="radio" name="mode" value="word" id="modeWord"> <span>"안녕"이라는 말을 알아듣기<br><small>안뇽·안농처럼 비슷한 발음도 인정해요. 크롬·사파리·삼성인터넷에서 동작해요.</small></span></label>
-      <label class="opt"><input type="radio" name="mode" value="sound" id="modeSound"> <span>목소리만 내도 성공<br><small>발음이 아직 어렵거나 인식이 잘 안 될 때 추천해요. 처음엔 이걸로 자신감을 키워주세요.</small></span></label>
+      <label class="opt"><input type="radio" name="mode" value="sound" id="modeSound"> <span>목소리만 내도 성공<br><small>"안녕"이 아니어도 소리만 내면 성공이에요. 말을 아직 못 할 때만 잠깐 써주세요.</small></span></label>
     </div>
     <label class="opt"><input type="checkbox" id="tts"> <span>캐릭터 목소리 켜기<br><small>휴대폰 무음 모드를 꺼야 들려요.</small></span></label>
     <div class="warn" id="supportNote"></div>
@@ -239,7 +239,9 @@ const store = {
   get(k, d){ try{ const v = localStorage.getItem("hello-game:"+k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem("hello-game:"+k, JSON.stringify(v)); return true; }catch(e){ return false; } }
 };
-const settings = Object.assign({ kid:window.HelloLines.DEFAULT_KID, mode:"sound", tts:true }, store.get("settings", {}));
+const settings = Object.assign({ kid:window.HelloLines.DEFAULT_KID, mode:"word", tts:true }, store.get("settings", {}));
+// v2: 예전엔 '목소리만 내도 성공'이 기본값이었고, 인식 오류 때 자동으로 그 모드로 바뀌어 저장됐어요.
+if((settings.v||1) < 2){ settings.mode = "word"; settings.v = 2; store.set("settings", settings); }
 if(!settings.kid) settings.kid = window.HelloLines.DEFAULT_KID;
 let stars = store.get("stars", {});
 let photos = store.get("photos", []);
@@ -416,7 +418,7 @@ function say(text, c){
 }
 function speakTTS(text, c, finish){
   // onend가 안 오는 브라우저 대비
-  const guard = setTimeout(finish, 1200 + text.length * 170);
+  const guard = setTimeout(finish, 2000 + text.length * 260);
   if(!settings.tts || !("speechSynthesis" in window)){ clearTimeout(guard); setTimeout(finish, 900 + text.length*90); return; }
   try{
     speechSynthesis.cancel();
@@ -468,8 +470,8 @@ function chime(){
 
 /* ---------- 듣기 ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-// 아이 발음을 넉넉하게 인정: 안녕, 안뇽, 안농, 아녕, 앙녕, 안녕하세요, 하이, hello…
-const HELLO = /(안\s*[녕뇽농냥넝영녀]|아\s*[녕뇽농]|앙\s*[녕뇽]|안냐|하이|헬로|hi\b|hello|hey)/i;
+// '안녕'과 아이들의 비슷한 발음만 인정: 안녕, 안녕하세요, 안뇽, 안농, 아녕, 앙녕, 안냐세요…
+const HELLO = /(안\s*[녕뇽농냥넝녀]|아\s*[녕뇽]|앙\s*[녕뇽]|안냐)/;
 
 let listening = null; // {stop()}
 function stopListening(){ if(listening){ const l = listening; listening = null; l.stop(); } setMic(false); }
@@ -492,12 +494,17 @@ function listenWord(onHit, onTimeout){
           const t = e.results[i][j].transcript || "";
           if(HELLO.test(t)){ end(); onHit(t); return; }
         }
+        // '안녕'이 아닌 말은 부모님이 볼 수 있게 보여줘요
+        const heard = (e.results[i][0].transcript || "").trim();
+        if(e.results[i].isFinal && heard) showHint(`들린 말: "${heard}" → "안녕~" 해볼까?`);
       }
     };
     rec.onerror = e => {
       if(e.error==="not-allowed" || e.error==="service-not-allowed"){
-        end(); showHint("마이크를 쓸 수 없어요. 소리 모드로 바꿀게요."); settings.mode = "sound"; saveSettings();
-        onTimeout(true);
+        end();
+        onTimeout(e.error==="not-allowed"
+          ? "마이크가 막혀 있어요. 주소창 옆 🔒에서 마이크를 허용해주세요."
+          : "음성 인식을 쓸 수 없어요. 아이폰이면 설정 → 일반 → 키보드에서 '받아쓰기'를 켜주세요.");
       }
     };
     rec.onend = () => { if(alive) setTimeout(startOnce, 120); }; // 인식이 일찍 끝나면 다시 듣기
@@ -508,17 +515,19 @@ function listenWord(onHit, onTimeout){
   return { stop: end };
 }
 
-let micStream = null;
 async function listenSound(onHit, onTimeout){
   const lvl = document.getElementById("lvl");
-  let alive = true, raf, timer;
-  const end = () => { alive = false; cancelAnimationFrame(raf); clearTimeout(timer); lvl.style.opacity = 0; };
+  let alive = true, raf, timer, micStream = null;
+  const end = () => {
+    alive = false; cancelAnimationFrame(raf); clearTimeout(timer); lvl.style.opacity = 0;
+    if(micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  };
   const handle = { stop: end };
   try{
-    if(!micStream) micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    if(!alive){ end(); return handle; }
   }catch(e){
-    showHint("마이크 허용이 필요해요. 주소창 옆 🔒에서 마이크를 허용해주세요.");
-    onTimeout(true); return handle;
+    onTimeout("마이크 허용이 필요해요. 주소창 옆 🔒에서 마이크를 허용해주세요."); return handle;
   }
   if(!alive) return handle;
   const ctx = audioCtx();
@@ -623,15 +632,20 @@ function beginListen(){
   if(done || busy) return;
   stopListening();
   const c = current;
+  // 캐릭터 목소리("안녕~")를 마이크가 듣고 성공 처리하지 않게, 남은 소리를 먼저 끊어요
+  stopClip(); try{ speechSynthesis.cancel(); }catch(e){}
   setMic(true);
-  showHint(settings.mode==="word" && SR ? "듣고 있어요 👂 \"안녕~\"" : "듣고 있어요 👂 큰 소리로 \"안녕~\"");
+  const byWord = settings.mode==="word" && SR;
+  showHint(byWord ? "듣고 있어요 👂 \"안녕~\""
+    : settings.mode==="word" ? "이 브라우저는 '안녕' 인식이 안 돼서 소리로 들어요 👂"
+    : "소리 모드: 아무 소리나 내면 성공 👂");
   const onHit = () => { listening = null; if(current===c) success(); };
   const onTimeout = async (fatal) => {
     listening = null; setMic(false);
     if(current!==c || done) return;
     round++;
     const L = lines(c);
-    if(fatal){ showHint("🎤를 누르면 다시 들어요"); return; }
+    if(fatal){ showHint(fatal); return; }
     $("charWrap").classList.add("waving");
     busy = true;
     if(round < 3){
@@ -642,7 +656,7 @@ function beginListen(){
       if(current===c && !done){ $("charWrap").classList.remove("waving"); showHint("🎤를 누르면 다시 들어요"); }
     }
   };
-  if(settings.mode==="word" && SR) listening = listenWord(onHit, onTimeout);
+  if(byWord) listening = listenWord(onHit, onTimeout);
   else { const h = { stop(){ h.cancel = true; } }; listening = h;
          listenSound(onHit, onTimeout).then(real => { if(h.cancel) real.stop(); else if(listening===h) listening = real; }); }
 }
